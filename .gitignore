@@ -1,0 +1,25 @@
+# C / Compilation Artifacts
+c/build/
+*.o
+*.out
+wave_sim
+
+# Python Environment & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# Project-Specific Generated Files (Simulation Outputs)
+shared/data/*.bin
+# output/*.gif
+output/*.mp4
+
+# OS and Editor Files
+.DS_Store
+.vscode/
+*.swp
