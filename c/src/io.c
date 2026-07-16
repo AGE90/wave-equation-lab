@@ -6,6 +6,12 @@
 Config load_config(const char* filepath) {
     Config cfg = {0};
     cfg.c_alt = -1.0f; // negative means disabled
+    // sensible defaults
+    cfg.initial_type = INITIAL_ZERO;
+    cfg.forcing_type = FORCING_NONE;
+    cfg.forcing_f = 30.0f;
+    cfg.forcing_f1 = 60.0f;
+    cfg.forcing_t1 = 1.0f;
     
     FILE* fp = fopen(filepath, "rb");
     if (!fp) {
@@ -42,6 +48,7 @@ Config load_config(const char* filepath) {
     }
     
     cJSON* item;
+    // helper lambdas (as static functions) are not available in C89; use inline parsing here
     if ((item = cJSON_GetObjectItem(json_root, "nx"))) cfg.nx = item->valueint;
     if ((item = cJSON_GetObjectItem(json_root, "ny"))) cfg.ny = item->valueint;
     if ((item = cJSON_GetObjectItem(json_root, "nt"))) cfg.nt = item->valueint;
@@ -56,9 +63,43 @@ Config load_config(const char* filepath) {
     if ((item = cJSON_GetObjectItem(json_root, "lens_radius"))) cfg.lens_radius = item->valuedouble;
     if ((item = cJSON_GetObjectItem(json_root, "lens_x"))) cfg.lens_x = item->valuedouble;
     if ((item = cJSON_GetObjectItem(json_root, "lens_y"))) cfg.lens_y = item->valuedouble;
-    if ((item = cJSON_GetObjectItem(json_root, "source_type"))) cfg.source_type = item->valueint;
+    // Parse initial_type (string or int)
+    if ((item = cJSON_GetObjectItem(json_root, "initial_type"))) {
+        if (item->type == cJSON_String && item->valuestring) {
+            cfg.initial_type = parse_initial_type(item->valuestring, cfg.initial_type);
+        } else {
+            cfg.initial_type = (InitialType)item->valueint;
+        }
+    }
+
+    // Parse forcing: accept either a top-level forcing_type or a nested object 'forcing'
+    if ((item = cJSON_GetObjectItem(json_root, "forcing_type"))) {
+        cfg.forcing_type = (ForcingType)item->valueint;
+    }
+    cJSON* forcing_obj = cJSON_GetObjectItem(json_root, "forcing");
+    if (forcing_obj && forcing_obj->type == cJSON_Object) {
+        cJSON* ftype = cJSON_GetObjectItem(forcing_obj, "type");
+        if (ftype) {
+            if (ftype->type == cJSON_String && ftype->valuestring) {
+                cfg.forcing_type = parse_forcing_type(ftype->valuestring, cfg.forcing_type);
+            } else {
+                cfg.forcing_type = (ForcingType)ftype->valueint;
+            }
+        }
+        cJSON* fval;
+        if ((fval = cJSON_GetObjectItem(forcing_obj, "f"))) cfg.forcing_f = fval->valuedouble;
+        if ((fval = cJSON_GetObjectItem(forcing_obj, "f1"))) cfg.forcing_f1 = fval->valuedouble;
+        if ((fval = cJSON_GetObjectItem(forcing_obj, "t1"))) cfg.forcing_t1 = fval->valuedouble;
+    }
     if ((item = cJSON_GetObjectItem(json_root, "output_freq"))) cfg.output_freq = item->valueint;
     
+    if (cfg.forcing_type == FORCING_NONE) {
+        // default: no forcing; keep the initial_type as set (default gaussian)
+    }
+
+    cfg.initial_fn = resolve_initial_fn(cfg.initial_type);
+    cfg.forcing_fn = resolve_forcing_fn(cfg.forcing_type);
+
     cJSON_Delete(json_root);
     free(content);
     return cfg;

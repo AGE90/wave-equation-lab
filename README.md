@@ -6,23 +6,59 @@ Welcome to the **Wave Equation Lab**, a computational sandbox designed to explor
 
 ## Experiments Gallery Showcase
 
-Below are example outputs rendering acoustic waves interacting with different structural mediums. Read the `EXPERIMENTATION_GUIDE.md` for in-depth documentation manually tweaking and generating variables underlying these fluid domains.
+Below are example outputs produced from the JSON configs in `shared/configs`. Read `EXPERIMENTATION_GUIDE.md` for deeper parameter tuning and experiment workflows.
 
-### Linear Homogeneous Media (Default Experiment)
-A simple, flat, undisturbed medium propagating at constant speed ($c=1.0$). Displays the standard Ricker wavelet without any diffraction or boundary anomaly.
-![Standard Linear Propagation](output/default.gif)
-
----
-
-### Sharp Boundary Transition (Experiment 2)
-The wave domain is abruptly split at $x = 0.4$. The left region remains at speed $c=4.0$ while the right region drops rigidly to $c=1.0$, creating a heavy refractive barrier and reflection.
-![Boundary Refraction](output/experiment02.gif)
+### default.json
+Baseline homogeneous medium with $c=3.0$, Gaussian initial condition, and no external forcing.
+![Default Homogeneous Medium](output/default.gif)
 
 ---
 
-### Immersive Circular Acoustic Lens (Experiment 3)
-A spherical focal lens embedded in the grid ($radius = 0.25$, wave speed inside is significantly minimized relative to outside medium). Proves spherical phase distortion directly from structural geometry rather than code manipulation.
-![Lens Diffraction](output/experiment03.gif)
+### linear_media_change.json
+Piecewise medium with a vertical interface at $x=0.4$ (`media_type=1`): left side $c=4.0$, right side $c_{alt}=1.0$, driven by a Ricker source ($f=30.0$).
+![Linear Media Change](output/linear_media_change.gif)
+
+---
+
+### lens.json
+Circular lens medium (`media_type=2`) centered at $(0.5, 0.5)$ with radius $0.1$, combining $c=4.0$ outside and $c_{alt}=1.0$ inside under Ricker forcing.
+![Lens Medium](output/lens.gif)
+
+---
+
+### init_gaussian.json
+Gaussian initial displacement in a uniform medium ($c=3.0$), useful for observing clean radial propagation from an initial state.
+![Gaussian Initial Condition](output/init_gaussian.gif)
+
+---
+
+### init_impulse.json
+Point-impulse initial condition in a uniform medium ($c=3.0$), emphasizing high-frequency content from a localized kick.
+![Point Impulse Initial Condition](output/init_impulse.gif)
+
+---
+
+### forcing_ricker.json
+No prescribed initial field; wave energy is injected over time using a Ricker forcing term with $f=30.0$ in a homogeneous medium.
+![Ricker Forcing](output/forcing_ricker.gif)
+
+---
+
+### forcing_sine.json
+Time-harmonic forcing experiment using a sinusoidal source ($f=20.0$) in a homogeneous medium ($c=3.0$).
+![Sine Forcing](output/forcing_sine.gif)
+
+---
+
+### forcing_chirp.json
+Frequency-sweep forcing from $f_0=5.0$ to $f_1=50.0$ over $t_1=1.0$, highlighting broadband response in the same grid.
+![Chirp Forcing](output/forcing_chirp.gif)
+
+---
+
+### break_clf_condition.json
+Deliberately aggressive setup ($c=4.8$, $\Delta t=0.0005$, $\Delta x=\Delta y=0.00333333$) that violates the 2D CFL threshold and demonstrates numerical blow-up.
+![CFL Condition Break](output/break_clf_condition.gif)
 
 ---
 
@@ -34,35 +70,41 @@ This laboratory serves three core purposes:
 3. **Software Architecture & Optimization**: Benchmarking high-level vectorized matrix operations against contiguous raw-memory C pointers.
 
 ```
-wave-project/
+wave-equation/
 │
-├── README.md               <-- You are here (Unified Master Theory & Lab Manual)
-│
-├── EXPERIMENTATION_GUIDE.md<-- Deep dive on running and configuring physics labs
-│
-├── python/
-│   ├── pyproject.toml      <-- Python environment configuration (uv)
-│   ├── src/wave/
-│   │   ├── solver_1d.py    <-- Vectorized 1D wave equation solver
-│   │   ├── solver_2d.py    <-- Vectorized 2D wave equation solver
-│   │   ├── visualization.py<-- Animation and plotting suite
-│   │   └── experiments.py  <-- Batch experiment runner
-│   └── main.py             <-- Entry point for python execution
-│
+├── README.md
+├── EXPERIMENTATION_GUIDE.md
+├── Makefile
 ├── c/
-│   ├── src/
-│   │   ├── wave_1d.c       <-- Fast 1D finite difference solver
-│   │   ├── wave_2d.c       <-- Fast 2D finite difference solver
-│   │   ├── io.c            <-- High-performance binary I/O
-│   │   └── utils.c         <-- Memory management and mathematical utilities
 │   ├── include/
-│   ├── build/
-│   └── Makefile            <-- Multi-target C build script
-│
+│   │   ├── cJSON.h
+│   │   └── wave.h
+│   └── src/
+│       ├── cJSON.c
+│       ├── io.c
+│       ├── main.c
+│       └── wave_2d.c
+├── python/
+│   ├── .python-version
+│   ├── pyproject.toml
+│   ├── main.py
+│   └── src/
+│       └── wave/
+│           ├── solver_2d.py
+│           └── visualization.py
 ├── shared/
-│   ├── configs/            <-- Simulation experiment YAML/TXT settings
-│   └── data/               <-- Binary/CSV export files
-└── references/             <-- Research resources
+│   ├── configs/
+│   │   ├── default.json
+│   │   ├── linear_media_change.json
+│   │   ├── lens.json
+│   │   ├── init_gaussian.json
+│   │   ├── init_impulse.json
+│   │   ├── forcing_ricker.json
+│   │   ├── forcing_sine.json
+│   │   ├── forcing_chirp.json
+│   │   └── break_clf_condition.json
+│   └── data/
+└── output/
 ```
 
 ---
@@ -348,4 +390,15 @@ Use the Python scripts to parse the binary output and generate a wave animation:
 cd ../python
 uv run python src/wave/visualization.py --input ../shared/data/output.bin
 ```
-Observe the performance differences: C easily runs large grid resolutions ($1000 \times 1000$ points) at orders of magnitude faster execution speeds.
+
+## Config: Initial Conditions & Forcing
+
+The C engine now separates initial conditions from time-dependent forcing. Use `initial_type` and a `forcing` object in JSON configs.
+
+Example:
+```json
+"initial_type": "gaussian",
+"forcing": { "type": "ricker", "f": 30.0 }
+```
+Supported `initial_type` values: `gaussian`, `point_impulse`.
+Supported forcing `type`s: `ricker`, `sine`, `chirp` (chirp accepts `f1` and `t1`).

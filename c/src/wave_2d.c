@@ -1,20 +1,9 @@
 #include "wave.h"
 
-// Initialize with a Gaussian pulse in the center
-void init_gaussian(float* u, int nx, int ny, float dx, float dy) {
-    float x0 = (nx * dx) / 2.0f;
-    float y0 = (ny * dy) / 2.0f;
-    float sigma = 0.1f;
-    
-    for (int i = 0; i < nx; i++) {
-        for (int j = 0; j < ny; j++) {
-            float x = i * dx;
-            float y = j * dy;
-            float dist_sq = (x - x0)*(x - x0) + (y - y0)*(y - y0);
-            u[IDX(i, j, ny)] = expf(-dist_sq / (sigma * sigma));
-        }
-    }
-}
+/* Initial-condition and forcing implementations are in separate modules under:
+    - c/src/sources/ (initial condition modules)
+    - c/src/forcing/ (time-dependent source modules)
+    See `c/include/wave.h` for prototypes. */
 
 void run_wave_2d(Config cfg, const char* out_filepath) {
     // Arrays for history
@@ -35,13 +24,9 @@ void run_wave_2d(Config cfg, const char* out_filepath) {
         // We will continue to let the user see the blow-up, as required by the lab goals.
     }
     
-    // Initial Conditions
-    if (cfg.source_type == 1) {
-        // Zero initial displacement for the Ricker wavelet configuration (calloc already zeroed it)
-    } else {
-        init_gaussian(u_curr, cfg.nx, cfg.ny, cfg.dx, cfg.dy);
-        init_gaussian(u_prev, cfg.nx, cfg.ny, cfg.dx, cfg.dy); 
-        // u_prev == u_curr implies zero initial velocity
+    // Initial conditions are dispatched through the registry callback.
+    if (cfg.initial_fn) {
+        cfg.initial_fn(u_curr, u_prev, &cfg);
     }
     
     FILE* out_file = fopen(out_filepath, "wb");
@@ -55,6 +40,8 @@ void run_wave_2d(Config cfg, const char* out_filepath) {
         write_frame(out_file, u_curr, cfg.nx, cfg.ny);
     }
     
+    int center_i = cfg.nx / 2;
+    int center_j = cfg.ny / 2;
     for (int n = 1; n < cfg.nt; n++) {
         // Space loop (interior points) Note Dirichlet BC: boundaries remain 0 from calloc
         for (int i = 1; i < cfg.nx - 1; i++) {
@@ -81,18 +68,11 @@ void run_wave_2d(Config cfg, const char* out_filepath) {
                                 local_lx2 * (u_curr[r_idx] - 2.0f * u_curr[c_idx] + u_curr[l_idx]) +
                                 local_ly2 * (u_curr[d_idx] - 2.0f * u_curr[c_idx] + u_curr[u_id]);
                                 
-                // Add Ricker wavelet point source in the center
-                if (cfg.source_type == 1) {
-                    int center_i = (cfg.nx - 1) / 2 - 1;
-                    int center_j = (cfg.ny - 1) / 2 - 1;
-                    if (i == center_i && j == center_j) {
-                        float t = n * cfg.dt;
-                        float f = 30.0f;
-                        float pi = 3.1415926535f;
-                        float pi2_f2_t2 = pi * pi * f * f * t * t;
-                        float ricker = (1.0f - 2.0f * pi2_f2_t2) * expf(-pi2_f2_t2);
-                        u_next[c_idx] += c_speed * c_speed * cfg.dt * cfg.dt * ricker;
-                    }
+                // Time-dependent forcing (applied at center by default)
+                if (cfg.forcing_fn && i == center_i && j == center_j) {
+                    float t = n * cfg.dt;
+                    float src = cfg.forcing_fn(t, &cfg);
+                    u_next[c_idx] += c_speed * c_speed * cfg.dt * cfg.dt * src;
                 }
             }
         }

@@ -89,35 +89,13 @@ Create a new file in `shared/configs/my_experiment.json`. The framework is highl
   "lens_radius": 0.25,
   "lens_x": 0.5,
   "lens_y": 0.5,
-  "source_type": 1,
+  
   "output_freq": 10
 }
 ```
 
 #### Available Parameters:
-* **Spatial and Temporal Grid:**
-  * `nx`, `ny` (int): Number of grid cells in the X and Y dimensions.
-  * `nt` (int): Total number of time steps to compute.
-  * `dx`, `dy` (float): Spatial step size (e.g., meters per cell).
-  * `dt` (float): Time step size (e.g., seconds per tick). Be careful to satisfy the CFL condition!
-
-* **Physics & Media Heterogeneity:**
-  * `c` (float): Base speed of the wave in the background medium.
-  * `media_type` (int): 
-    * `0`: Homogeneous medium (`c` everywhere).
-    * `1`: Split plane (a straight line dividing the medium).
-    * `2`: Circular lens.
-  * `c_alt` (float): The wave speed inside the alternate medium structures (if `media_type > 0`).
-  * `x_limit` (float): For `media_type: 1`, the physical X coordinate where the boundary begins ($x < xlimit$).
-  * `lens_radius`, `lens_x`, `lens_y` (float): For `media_type: 2`, defines the scale and location of the circular lens in physical space.
-
-* **Wave Forcing Initialization:**
-  * `source_type` (int): 
-    * `0`: Standard Gaussian blob initial condition (dropped like a rock in a pond at $t=0$).
-    * `1`: Ricker wavelet (continuous seismic pinging at the center of the grid over time).
-
-* **I/O:**
-  * `output_freq` (int): Number of time steps to skip before writing a snapshot to the `.bin` output file. Using `10` saves only every 10th frame, saving significant storage layout.
+See `PARAMETERS.md` for the full, continuously maintained parameter catalog (types, defaults, compatibility notes, and extension rules).
 
 
 ### Step 2: Run the High-Speed Simulation (C)

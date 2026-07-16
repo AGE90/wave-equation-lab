@@ -19,14 +19,16 @@ OUTPUT = output/$(EXP).gif
 # C Compilation settings
 CC = gcc
 CFLAGS = -Wall -O3
+CPPFLAGS = -I$(INC_DIR)
 LDFLAGS = -lm
 
 SRC_DIR = c/src
 OBJ_DIR = c/build
 INC_DIR = c/include
 
-SRCS = $(wildcard $(SRC_DIR)/*.c)
+SRCS = $(shell find $(SRC_DIR) -name '*.c')
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRCS))
+DEPS = $(OBJS:.o=.d)
 
 TARGET = $(OBJ_DIR)/wave_sim
 
@@ -40,8 +42,10 @@ $(TARGET): $(OBJS)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	mkdir -p $(OBJ_DIR)
-	$(CC) $(CFLAGS) -I$(INC_DIR) -c $< -o $@
+	mkdir -p $(dir $@)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+-include $(DEPS)
 
 run: build
 	@echo "=== Running C Simulation ($(EXP)) ==="
