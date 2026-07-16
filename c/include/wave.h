@@ -24,6 +24,13 @@ typedef enum {
     FORCING_CHIRP = 3
 } ForcingType;
 
+typedef enum {
+    DAMPING_PROFILE_NONE = 0,
+    DAMPING_PROFILE_X_SPLIT = 1,
+    DAMPING_PROFILE_CIRCULAR_REGION = 2,
+    DAMPING_PROFILE_ABSORBING_BOUNDARY = 3
+} DampingProfileType;
+
 typedef struct Config Config;
 typedef void (*InitialConditionFn)(float* u_curr, float* u_prev, const Config* cfg);
 typedef float (*ForcingFn)(float t, const Config* cfg);
@@ -42,6 +49,16 @@ struct Config {
     float lens_radius;  // Radius of the lens
     float lens_x;       // X position of the lens center
     float lens_y;       // Y position of the lens center
+    float damping;      // Baseline attenuation coefficient gamma
+    DampingProfileType damping_profile_type;
+    float damping_alt;  // Alternate attenuation for split/circular profiles
+    float damping_x_limit;
+    float damping_radius;
+    float damping_x;
+    float damping_y;
+    float damping_width;         // Absorbing boundary width
+    float damping_edge;          // Attenuation at the outer boundary
+    float damping_power;         // Boundary ramp exponent
     int output_freq; // Frequency of output frames (every N time steps)
 
     // Fields to explicitly separate initial conditions and forcing

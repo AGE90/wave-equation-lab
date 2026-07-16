@@ -101,6 +101,45 @@ Examples:
 |---|---|---|---|---|
 | `output_freq` | int | No | `0` | Write a frame every N steps. If `<= 0`, no frames are written. |
 
+### 2.6 Damping And Attenuation
+
+The damped equation is $u_{tt} + \gamma(x,y)u_t = c(x,y)^2\nabla^2u$. A positive $\gamma$ removes energy over time, modeling effects such as air absorption, sound loss in walls, and seismic attenuation.
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `damping` | float | No | `0.0` | Baseline attenuation coefficient $\gamma$ in $s^{-1}$. Must be non-negative. |
+| `damping_profile` | object | No | omitted | Optional spatial override for $\gamma(x,y)$. |
+| `damping_profile.type` | string | No | `"none"` | `"none"`, `"x_split"`, `"circular_region"`, or `"absorbing_boundary"`. |
+| `damping_profile.damping_alt` | float | Profile-dependent | `damping` | Non-negative attenuation in the selected split or circular region. |
+| `damping_profile.x_limit` | float | `x_split` | `0.0` | Points with `x < x_limit` use `damping_alt`. |
+| `damping_profile.radius` | float | `circular_region` | — | Positive radius of the damped circle. |
+| `damping_profile.x`, `damping_profile.y` | float | `circular_region` | `0.0` | Center of the damped circle. |
+| `damping_profile.width` | float | `absorbing_boundary` | — | Positive physical thickness of the edge layer. |
+| `damping_profile.edge_damping` | float | `absorbing_boundary` | `damping` | Non-negative attenuation at the outer boundary. |
+| `damping_profile.power` | float | No | `2.0` | Non-negative exponent controlling the boundary-layer ramp. |
+
+The absorbing-boundary profile transitions smoothly from `damping` in the interior to `edge_damping` at each domain edge; corners receive the strongest attenuation. It is useful for reducing reflected waves at the fixed zero boundaries.
+
+Example:
+
+```json
+"damping": 0.01,
+"damping_profile": {
+  "type": "absorbing_boundary",
+  "width": 0.12,
+  "edge_damping": 20.0,
+  "power": 2.0
+}
+```
+
+The centered update is:
+
+$$
+(1 + \gamma_{i,j}dt/2)u^{n+1}_{i,j} =
+2u^n_{i,j} - (1 - \gamma_{i,j}dt/2)u^{n-1}_{i,j} +
+c_{i,j}^2dt^2\nabla_h^2u^n_{i,j}.
+$$
+
 ## 3. Practical Stability Constraint
 
 For 2D explicit finite differences, stability requires:
@@ -110,6 +149,8 @@ $$
 $$
 
 If violated, the simulation may blow up numerically.
+
+Damping dissipates energy, but it does not relax this CFL constraint.
 
 ## 4. Extension Template For New Parameters
 

@@ -151,3 +151,26 @@ We can also create circular regions of differing media.
 ### Experiment C: Changing Forcing Functions
 Currently, the codebase injects a 'Ricker wavelet' (a seismic wave pulse) into the dead center of the grid over time.
 - **Action**: Try changing frequency parameter $f=30.0$ in `wave_2d.c`. Higher frequencies ($f=100.0$) will yield extremely sharp, short ripples, while lower frequencies ($f=5.0$) will yield broad, smooth waves. Or, comment out the Ricker wavelet logic globally and rely purely on the Gaussian initial condition `init_gaussian()`.
+
+### Experiment D: Spatial Attenuation And Absorbing Layers
+The damped wave equation adds $\gamma(x,y)u_t$, which removes energy over time. This represents air absorption, sound transmission through walls, or seismic attenuation in geological material. The C and NumPy solvers both support a uniform baseline coefficient and optional spatial profiles.
+
+For uniform attenuation, add the following to any configuration:
+
+```json
+"damping": 0.01
+```
+
+For a smooth absorbing layer that minimizes reflection from the zero-valued grid boundaries, use:
+
+```json
+"damping": 0.01,
+"damping_profile": {
+  "type": "absorbing_boundary",
+  "width": 0.12,
+  "edge_damping": 20.0,
+  "power": 2.0
+}
+```
+
+Run the included experiment with `make EXP=damping_absorbing_boundary`. The attenuation is low in the center and rises smoothly at the edges. `x_split` and `circular_region` profiles can instead model a damped geological layer or acoustic-foam inclusion; see [PARAMETERS.md](PARAMETERS.md) for their fields and constraints.
