@@ -5,6 +5,28 @@
     - c/src/forcing/ (time-dependent source modules)
     See `c/include/wave.h` for prototypes. */
 
+static float damping_at(const Config* cfg, float x, float y) {
+    float gamma = cfg->damping;
+
+    if (cfg->damping_profile_type == DAMPING_PROFILE_X_SPLIT) {
+        if (x < cfg->damping_x_limit) gamma = cfg->damping_alt;
+    } else if (cfg->damping_profile_type == DAMPING_PROFILE_CIRCULAR_REGION) {
+        float dx = x - cfg->damping_x;
+        float dy = y - cfg->damping_y;
+        if (dx * dx + dy * dy < cfg->damping_radius * cfg->damping_radius) gamma = cfg->damping_alt;
+    } else if (cfg->damping_profile_type == DAMPING_PROFILE_ABSORBING_BOUNDARY) {
+        float domain_x = (cfg->nx - 1) * cfg->dx;
+        float domain_y = (cfg->ny - 1) * cfg->dy;
+        float distance_to_edge = fminf(fminf(x, domain_x - x), fminf(y, domain_y - y));
+        if (distance_to_edge < cfg->damping_width) {
+            float penetration = 1.0f - distance_to_edge / cfg->damping_width;
+            gamma = cfg->damping + (cfg->damping_edge - cfg->damping) * powf(penetration, cfg->damping_power);
+        }
+    }
+
+    return gamma;
+}
+
 void run_wave_2d(Config cfg, const char* out_filepath) {
     // Arrays for history
     int N = cfg.nx * cfg.ny;
@@ -19,6 +41,7 @@ void run_wave_2d(Config cfg, const char* out_filepath) {
     printf("--- 2D Wave Simulation ---\n");
     printf("Grid: %d x %d, Steps: %d\n", cfg.nx, cfg.ny, cfg.nt);
     printf("CFL lambda_x: %f, lambda_y: %f\n", lambda_x, lambda_y);
+    printf("Damping: baseline gamma=%f, profile=%d\n", cfg.damping, cfg.damping_profile_type);
     if (lambda_x*lambda_x + lambda_y*lambda_y > 1.0f) {
         printf("WARNING: CFL stability condition violated! (lambda_x^2 + lambda_y^2 > 1)\n");
         // We will continue to let the user see the blow-up, as required by the lab goals.
@@ -63,10 +86,13 @@ void run_wave_2d(Config cfg, const char* out_filepath) {
                 
                 float local_lx2 = (c_speed * cfg.dt / cfg.dx) * (c_speed * cfg.dt / cfg.dx);
                 float local_ly2 = (c_speed * cfg.dt / cfg.dy) * (c_speed * cfg.dt / cfg.dy);
+                float gamma = damping_at(&cfg, x, j * cfg.dy);
+                float gamma_dt_half = 0.5f * gamma * cfg.dt;
                 
-                u_next[c_idx] = 2.0f * u_curr[c_idx] - u_prev[c_idx] +
+                u_next[c_idx] = (2.0f * u_curr[c_idx] - (1.0f - gamma_dt_half) * u_prev[c_idx] +
                                 local_lx2 * (u_curr[r_idx] - 2.0f * u_curr[c_idx] + u_curr[l_idx]) +
-                                local_ly2 * (u_curr[d_idx] - 2.0f * u_curr[c_idx] + u_curr[u_id]);
+                                local_ly2 * (u_curr[d_idx] - 2.0f * u_curr[c_idx] + u_curr[u_id])) /
+                                (1.0f + gamma_dt_half);
                                 
                 // Time-dependent forcing (applied at center by default)
                 if (cfg.forcing_fn && i == center_i && j == center_j) {

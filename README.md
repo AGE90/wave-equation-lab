@@ -62,6 +62,12 @@ Deliberately aggressive setup ($c=4.8$, $\Delta t=0.0005$, $\Delta x=\Delta y=0.
 
 ---
 
+### damping_absorbing_boundary.json
+Ricker-forced with baseline attenuation and a smooth high-damping edge layer, reducing reflections from the fixed domain boundaries.
+![Damping Absorbing Boundary](output/damping_absorbing_boundary.gif)
+
+---
+
 ## 1. Project Vision & Architecture
 
 This laboratory serves three core purposes:
@@ -128,6 +134,13 @@ Where:
 - $c$ is the wave speed in the medium.
 - $\frac{\partial^2 u}{\partial t^2}$ represents the **temporal acceleration**.
 - $\nabla^2 u$ (the Laplacian) represents the **spatial curvature**.
+
+### Attenuating Media
+To model energy loss in air, walls, or geological material, the solver also supports spatial damping:
+$$
+\frac{\partial^2 u}{\partial t^2} + \gamma(x,y)\frac{\partial u}{\partial t} = c(x,y)^2\nabla^2u.
+$$
+Set a uniform baseline with `"damping": 0.01`, then optionally use a `damping_profile` for split regions, circular material, or smooth absorbing boundary layers. See [PARAMETERS.md](PARAMETERS.md) for the full configuration schema.
 
 ---
 

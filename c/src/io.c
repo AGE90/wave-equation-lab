@@ -3,6 +3,20 @@
 #include <stdlib.h>
 #include "cJSON.h"
 
+static void config_error(const char* message) {
+    printf("Error: Invalid damping configuration: %s\n", message);
+    exit(1);
+}
+
+static DampingProfileType parse_damping_profile_type(const char* name) {
+    if (strcmp(name, "none") == 0) return DAMPING_PROFILE_NONE;
+    if (strcmp(name, "x_split") == 0) return DAMPING_PROFILE_X_SPLIT;
+    if (strcmp(name, "circular_region") == 0) return DAMPING_PROFILE_CIRCULAR_REGION;
+    if (strcmp(name, "absorbing_boundary") == 0) return DAMPING_PROFILE_ABSORBING_BOUNDARY;
+    config_error("damping_profile.type must be none, x_split, circular_region, or absorbing_boundary");
+    return DAMPING_PROFILE_NONE;
+}
+
 Config load_config(const char* filepath) {
     Config cfg = {0};
     cfg.c_alt = -1.0f; // negative means disabled
@@ -12,6 +26,8 @@ Config load_config(const char* filepath) {
     cfg.forcing_f = 30.0f;
     cfg.forcing_f1 = 60.0f;
     cfg.forcing_t1 = 1.0f;
+    cfg.damping_profile_type = DAMPING_PROFILE_NONE;
+    cfg.damping_power = 2.0f;
     
     FILE* fp = fopen(filepath, "rb");
     if (!fp) {
@@ -63,6 +79,36 @@ Config load_config(const char* filepath) {
     if ((item = cJSON_GetObjectItem(json_root, "lens_radius"))) cfg.lens_radius = item->valuedouble;
     if ((item = cJSON_GetObjectItem(json_root, "lens_x"))) cfg.lens_x = item->valuedouble;
     if ((item = cJSON_GetObjectItem(json_root, "lens_y"))) cfg.lens_y = item->valuedouble;
+    if ((item = cJSON_GetObjectItem(json_root, "damping"))) cfg.damping = item->valuedouble;
+    cfg.damping_alt = cfg.damping;
+    cfg.damping_edge = cfg.damping;
+
+    cJSON* damping_obj = cJSON_GetObjectItem(json_root, "damping_profile");
+    if (damping_obj && damping_obj->type == cJSON_Object) {
+        cJSON* profile_item = cJSON_GetObjectItem(damping_obj, "type");
+        if (!profile_item || profile_item->type != cJSON_String || !profile_item->valuestring) {
+            config_error("damping_profile.type is required and must be a string");
+        }
+        cfg.damping_profile_type = parse_damping_profile_type(profile_item->valuestring);
+        if ((item = cJSON_GetObjectItem(damping_obj, "damping_alt"))) cfg.damping_alt = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "x_limit"))) cfg.damping_x_limit = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "radius"))) cfg.damping_radius = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "x"))) cfg.damping_x = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "y"))) cfg.damping_y = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "width"))) cfg.damping_width = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "edge_damping"))) cfg.damping_edge = item->valuedouble;
+        if ((item = cJSON_GetObjectItem(damping_obj, "power"))) cfg.damping_power = item->valuedouble;
+    }
+
+    if (cfg.damping < 0.0f || cfg.damping_alt < 0.0f || cfg.damping_edge < 0.0f || cfg.damping_power < 0.0f) {
+        config_error("damping values and power must be non-negative");
+    }
+    if (cfg.damping_profile_type == DAMPING_PROFILE_ABSORBING_BOUNDARY && cfg.damping_width <= 0.0f) {
+        config_error("absorbing_boundary requires width > 0");
+    }
+    if (cfg.damping_profile_type == DAMPING_PROFILE_CIRCULAR_REGION && cfg.damping_radius <= 0.0f) {
+        config_error("circular_region requires radius > 0");
+    }
     // Parse initial_type (string or int)
     if ((item = cJSON_GetObjectItem(json_root, "initial_type"))) {
         if (item->type == cJSON_String && item->valuestring) {
