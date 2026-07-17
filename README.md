@@ -63,7 +63,7 @@ Deliberately aggressive setup ($c=4.8$, $\Delta t=0.0005$, $\Delta x=\Delta y=0.
 ---
 
 ### damping_absorbing_boundary.json
-Gaussian pulse with baseline attenuation and a smooth high-damping edge layer, reducing reflections from the fixed domain boundaries.
+Ricker-forced with baseline attenuation and a smooth high-damping edge layer, reducing reflections from the fixed domain boundaries.
 ![Damping Absorbing Boundary](output/damping_absorbing_boundary.gif)
 
 ---
